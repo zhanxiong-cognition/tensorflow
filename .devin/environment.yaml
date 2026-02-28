@@ -1,0 +1,63 @@
+setup:
+  - name: Install Bazel 7.7.0
+    run: |
+      sudo wget -q https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-linux-x86_64 -O /usr/local/bin/bazel &&
+      sudo chmod +x /usr/local/bin/bazel
+
+  - name: Verify Bazel installation
+    run: bazel --version
+
+maintenance:
+  - name: Clean Bazel cache (if needed after major changes)
+    run: bazel clean
+
+  - name: Run a small subset of C++ unit tests to verify build
+    run: bazel test --config=linux -k //tensorflow/core/lib/core:status_test //tensorflow/core/lib/core:arena_test //tensorflow/core/lib/core:coding_test
+
+knowledge:
+  - name: Build system
+    contents: |
+      TensorFlow uses Bazel as its build system. The required Bazel version is
+      specified in the .bazelversion file at the repo root (currently 7.7.0).
+      The WORKSPACE file at the repo root defines all external dependencies
+      which Bazel fetches automatically during the first build.
+
+  - name: Running tests
+    contents: |
+      Tests are run via Bazel. For CPU-only Linux builds use:
+        export flags="--config=linux -k"
+        bazel test ${flags} <target>
+      For GPU builds, add --config=cuda to the flags.
+      Example targets:
+        //tensorflow/core/lib/core:status_test  (small C++ test)
+        //tensorflow/core/lib/core:arena_test   (small C++ test)
+        //tensorflow/core/lib/core:coding_test  (small C++ test)
+        //tensorflow/python/...                 (all Python tests - very slow)
+
+  - name: First build is slow
+    contents: |
+      The initial build downloads all external dependencies and compiles a
+      large number of C++ files. Even for a small subset of tests, the first
+      build can take 5-10 minutes depending on machine specs. Subsequent
+      incremental builds are much faster due to Bazel's caching.
+
+  - name: Hermetic Python toolchain
+    contents: |
+      TensorFlow uses a hermetic Python setup managed by Bazel (see WORKSPACE).
+      The supported Python versions are 3.10 through 3.14, with corresponding
+      requirements lock files at the repo root (requirements_lock_3_*.txt).
+      You do not need to install Python packages manually; Bazel handles this.
+
+  - name: Configuration
+    contents: |
+      The repo includes a configure.py script and a .bazelrc with many
+      predefined build configurations (linux, cuda, dbg, etc.).
+      For a basic CPU build on Linux, --config=linux is sufficient.
+      No manual configure step is required for basic builds.
+
+  - name: Hermetic C++ toolchain
+    contents: |
+      TensorFlow registers a hermetic ML C++ toolchain via
+      @rules_ml_toolchain in the WORKSPACE. This means you do not need
+      to install a specific system compiler; Bazel downloads and uses
+      its own toolchain automatically.
